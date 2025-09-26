@@ -1,0 +1,270 @@
+---
+title: "desafio6-247345"
+author: "Gabriel Ozélo Braga - ra247345"
+date: "2025-09-17"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+#install.packages("RSQLite")
+#install.packages("dplyr")
+
+```
+## Parte referente ao 'Desafio 6' ao fim.
+
+1. Baixe o arquivo disco.db e armazene na variável path o caminho completo (pasta) na qual o arquivo foi gravado. Utilize o comando file.path() para combinar a variável path com o nome do arquivo (disco.db) e obter o nome do arquivo com seu respectivo caminho. Armazene este resultado na variável fname.
+```{r}
+#Obtém o caminho da pasta atual onde está o projeto
+path <- getwd()
+
+# Criar o caminho completo até o arquivo disco.db
+fname <- file.path(path, "disco.db")
+
+fname
+```
+2. Utilizando o pacote RSQLite, conecte-se ao arquivo de banco de dados. Armazene a conexão na variável conn.
+```{r}
+library(RSQLite)
+conn = dbConnect(SQLite(), fname)
+```
+3. Liste as tabelas existentes no banco de dados.
+```{r}
+dbListTables(conn)
+```
+4. Identifique os nomes de todas as colunas existentes na tabela customers.
+```{r}
+customers = dbGetQuery(conn,'SELECT * FROM customers')
+colnames(customers)
+```
+5. Utilizando apenas SQLite, com o apoio do comando dbGetQuery, identifique quantos clientes estão atualmente cadastrados neste banco de dados.
+```{r}
+nrow(customers)
+```
+6. Utilizando apenas SQLite, identifique o número de países diferentes em que moram os clientes encontrados acima.
+```{r}
+#Colocado uma parte adicional no query para termos em ordem alfabética
+uniqueCountries <- dbGetQuery(conn, 'SELECT DISTINCT country FROM customers ORDER BY country')
+head(uniqueCountries)
+```
+7. Utilizando apenas SQLite, quantos clientes existem por país? A tabela resultante deve conter o nome do país e a respectiva contagem, além de ser ordenada de maneira decrescente pela referida contagem
+```{r}
+#Seleciona paises, conta repetidos em customers guarda como customersQtd, agrupa por paises e põe em ordem decrescente.
+customersPerCountry <- dbGetQuery(conn, "SELECT country,
+                                  COUNT(*) AS customersQtd FROM 
+                                  customers GROUP BY 
+                                  country ORDER BY 
+                                  customersQtd DESC")
+head(customersPerCountry)
+```
+8. Quais são os 5 países com mais clientes registrados? Use apenas SQLite.
+```{r}
+customersPerCountryTop5 <- dbGetQuery(conn, "SELECT country,
+                                  COUNT(*) AS customersQtd FROM 
+                                  customers GROUP BY 
+                                  country ORDER BY 
+                                  customersQtd DESC LIMIT 5")
+head(customersPerCountryTop5)
+```
+9. Quais são os países registrados que possuem apenas 6 letras no nome?
+```{r}
+customerCountries6Letters <- dbGetQuery(conn, "SELECT DISTINCT country FROM customers WHERE LENGTH(country) = 6")
+head(customerCountries6Letters)
+```
+10. Quais foram as músicas compradas por clientes brasileiros?
+```{r}
+invoices <- dbGetQuery(conn, "SELECT * FROM invoices WHERE billingcountry = 'Brazil'")
+head(invoices)
+```
+11. Desconecte do banco de dados.
+```{r}
+dbDisconnect(conn)
+```
+## Parte referente ao 'Desafio 6'.
+
+*estou assumindo que álbuns e artistas mais tocados signifiquem os que foram comprados mais vezes
+
+## 1. Qual o álbum mais tocado por pais? [0.5 na P2]
+```{r}
+conn = dbConnect(SQLite(), fname)
+tracks <- dbGetQuery(conn, "SELECT * FROM tracks")
+albums <- dbGetQuery(conn, "SELECT * FROM albums")
+invoices <- dbGetQuery(conn, "SELECT * FROM invoices")
+invoice_items <- dbGetQuery(conn, "SELECT * FROM invoice_items")
+library(dplyr)
+df1 <- full_join(invoices, invoice_items, by="InvoiceId")
+#Agora, teremos em df2 uma tabela contendo cada invoice unico, seu track ID e o país de cobrança, apos isso basta um
+#querry final parecido com o do item 7. do lab para quantificar os invoices por album ID por país.
+df2 <- full_join(df1, tracks, by="TrackId")
+#Vamos rodar o código abaixo para mantermos apenas as colunas relevantes para os desafios 1. e 2.
+toKeep <- c("InvoiceId", "BillingCountry", "AlbumId", "Composer")
+for(x in colnames(df2)){
+  #print(x)
+  t1 <- length(toKeep)
+  t2 <- 0
+  while(t1 != 0){
+   # print(x)
+    #print(toKeep[t1])
+    if(x == toKeep[t1]){
+      t2 <- 1
+    }
+    t1 <- t1-1
+  }
+  if(t2 != 1){
+    df2[x] <- NULL
+  }
+}
+#De fato, ao analizar os dados também podemos droppar a coluna de invoiceid
+df2$InvoiceId <- NULL
+#Assim temos uma tabela onde cada linha representa uma aquisição individual de um certo album, mesmo que no mesmo invoice tenham outros itens acompanhados, estes simplesmente serão representados em outra linha, agora podemos agrupar por paises e contar e em seguida fazer o mesmo para compositores
+
+# ----------------------------
+# 1) Limpeza rápida do data frame
+# ----------------------------
+# Garantimos que as colunas usadas estejam como strings e sem espaços extras
+df2_clean <- df2
+df2_clean$BillingCountry <- trimws(as.character(df2_clean$BillingCountry))
+df2_clean$AlbumId      <- as.character(df2_clean$AlbumId)
+
+# ----------------------------
+# 2) Criar conexão com banco SQLite em memória
+# ----------------------------
+# "con" é o link entre o R e o SQLite
+# ":memory:" cria um banco temporário que não cria arquivo no disco
+con <- dbConnect(RSQLite::SQLite(), ":memory:")
+
+# ----------------------------
+# 3) Registrar o data frame como tabela no SQLite
+# ----------------------------
+# Aqui estamos dizendo que a tabela SQL se chama "df2" e contém os dados do nosso data frame
+dbWriteTable(con, "df2", df2_clean, overwrite = TRUE)
+
+# ----------------------------
+# 4) Escrever a query SQL
+# ----------------------------
+query <- "
+-- counts: conta quantas vezes cada álbum foi comprado em cada país
+WITH counts AS (
+  SELECT BillingCountry, AlbumId, COUNT(*) AS total
+  FROM df2
+  GROUP BY BillingCountry, AlbumId
+),
+
+-- max_per_country: para cada país, identifica o número máximo de compras de um álbum
+max_per_country AS (
+  SELECT BillingCountry, MAX(total) AS max_total
+  FROM counts
+  GROUP BY BillingCountry
+)
+
+-- seleciona o álbum mais comprado de cada país
+-- se houver empate, escolhemos o AlbumId menor como critério de desempate
+SELECT c.BillingCountry,
+       MIN(c.AlbumId) AS AlbumId, -- pega o menor AlbumId entre os empatados
+       m.max_total AS total       -- mostra a quantidade de compras desse álbum
+FROM counts c
+JOIN max_per_country m
+  ON c.BillingCountry = m.BillingCountry
+ AND c.total = m.max_total       -- só considera os álbuns que têm o total máximo
+GROUP BY c.BillingCountry          -- agrupa por país para garantir 1 linha por país
+ORDER BY c.BillingCountry;        -- ordena o resultado alfabeticamente pelos países
+"
+
+# ----------------------------
+# 5) Rodar a query no banco
+# ----------------------------
+result <- dbGetQuery(con, query)
+
+# ----------------------------
+# 6) Mostrar o resultado final
+# ----------------------------
+# Cada linha contém:
+# - BillingCountry: o país
+# - AlbumId: o álbum mais comprado naquele país
+# - total: número de compras desse álbum
+```
+## Resposta 1.
+
+## Os álbuns mais vendido por páis, considerando desempate o menor AlbumId, são
+```{r}
+print(result)
+```
+
+
+## 2. Qual o artista mais tocado por pais? [0.5 na P2]
+
+```{r}
+# ----------------------------
+# 1) Limpeza rápida do data frame
+# ----------------------------
+# Garantimos que as colunas usadas estejam como strings e sem espaços extras
+df2_clean <- df2
+df2_clean$BillingCountry <- trimws(as.character(df2_clean$BillingCountry))
+df2_clean$Composer       <- trimws(as.character(df2_clean$Composer))
+
+# ----------------------------
+# 2) Criar conexão com banco SQLite em memória
+# ----------------------------
+con <- dbConnect(RSQLite::SQLite(), ":memory:")
+
+# ----------------------------
+# 3) Registrar o data frame como tabela no SQLite
+# ----------------------------
+dbWriteTable(con, "df2", df2_clean, overwrite = TRUE)
+
+# ----------------------------
+# 4) Escrever a query SQL
+# ----------------------------
+query <- "
+-- counts: conta quantas vezes cada compositor foi comprado em cada país
+WITH counts AS (
+  SELECT BillingCountry, Composer, COUNT(*) AS total
+  FROM df2
+  WHERE Composer IS NOT NULL AND Composer <> ''  -- filtra valores nulos ou vazios
+  GROUP BY BillingCountry, Composer
+),
+
+-- max_per_country: para cada país, identifica o número máximo de compras de um compositor
+max_per_country AS (
+  SELECT BillingCountry, MAX(total) AS max_total
+  FROM counts
+  GROUP BY BillingCountry
+)
+
+-- seleciona o compositor mais comprado de cada país
+-- se houver empate, escolhemos o compositor que vem primeiro alfabeticamente
+SELECT c.BillingCountry,
+       MIN(c.Composer) AS Composer, -- desempate alfabético
+       m.max_total AS total
+FROM counts c
+JOIN max_per_country m
+  ON c.BillingCountry = m.BillingCountry
+ AND c.total = m.max_total       -- só considera os compositores com total máximo
+GROUP BY c.BillingCountry          -- garante 1 linha por país
+ORDER BY c.BillingCountry;        -- ordena alfabeticamente pelos países
+"
+
+# ----------------------------
+# 5) Rodar a query no banco
+# ----------------------------
+result <- dbGetQuery(con, query)
+
+# ----------------------------
+# 6) Mostrar o resultado final
+# ----------------------------
+# Cada linha contém:
+# - BillingCountry: país
+# - Composer: compositor mais comprado naquele país
+# - total: número de compras do compositor
+```
+## Resposta 2.
+
+## Os artistas mais vendido por páis, considerando desempate por ordem alfabetica, são
+```{r}
+print(result)
+```
+
+

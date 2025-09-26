@@ -1,0 +1,173 @@
+---
+title: "desafio02"
+author: "Gabriel Ozélo Braga - ra247345"
+date: "2025-08-21"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(reticulate)
+```
+# 1. Estatísticas Suficientes
+Queremos calcular, para cada dia de 2015 e para cada Cia. Aérea (AA, DL, UA, US):
+
+Total de voos
+
+Número de voos com ARRIVAL_DELAY > 10
+
+Percentual de atraso = num_atrasos / total_voos
+
+Assim vemos que as estatísticas suficientes são simplesmente o número de atrasos e o número de voos totais.
+# 2. Função getStats:
+```{python}
+import pandas as pd
+def getStats(chunk, pos):
+    # Filtra apenas as companhias de interesse
+    cia_filter = ['AA', 'DL', 'UA', 'US']
+    df = chunk[chunk['OP_UNIQUE_CARRIER'].isin(cia_filter)].copy()
+    
+    # Remove linhas com valores ausentes
+    df = df.dropna(subset=['FL_DATE', 'OP_UNIQUE_CARRIER', 'ARR_DELAY'])
+
+    # Extrai ano, mês e dia
+    df['FL_DATE'] = pd.to_datetime(df['FL_DATE'])
+    df['Ano'] = df['FL_DATE'].dt.year
+    df['Mes'] = df['FL_DATE'].dt.month
+    df['Dia'] = df['FL_DATE'].dt.day
+
+    # Define se houve atraso
+    df['Atraso'] = df['ARR_DELAY'] > 10
+
+    # Agrupa e calcula estatísticas
+    grouped = (
+        df.groupby(['Ano', 'Mes', 'Dia', 'OP_UNIQUE_CARRIER'])
+        .agg(
+            total_voos=('Atraso', 'count'),
+            atrasos=('Atraso', 'sum')
+        )
+        .reset_index()
+    )
+
+    return grouped
+
+```
+# 3. Leitura em blocos (chunks) com pandas.read_csv
+```{python}
+from zipfile import ZipFile
+
+def process_file(filepath, chunksize=100000):
+    stats_list = []
+    with ZipFile(filepath) as z:
+        # Considera o primeiro arquivo dentro do zip
+        csv_name = z.namelist()[0]
+        with z.open(csv_name) as f:
+            for i, chunk in enumerate(pd.read_csv(
+                f,
+                chunksize=chunksize,
+                usecols=['FL_DATE', 'OP_UNIQUE_CARRIER', 'ARR_DELAY'],
+                parse_dates=['FL_DATE']
+            )):
+                stats = getStats(chunk, i)
+                stats_list.append(stats)
+    
+    # Concatena todos os resultados parciais
+    return pd.concat(stats_list, ignore_index=True)
+```
+# 4. Função computeStats
+```{python}
+def computeStats(stats_df):
+    final = (
+        stats_df.groupby(['OP_UNIQUE_CARRIER', 'Ano', 'Mes', 'Dia'])
+        .agg({
+            'atrasos': 'sum',
+            'total_voos': 'sum'
+        })
+        .reset_index()
+    )
+
+    # Percentual de atrasos
+    final['Perc'] = final['atrasos'] / final['total_voos']
+    
+    # Cria a coluna de data
+    final['Data'] = pd.to_datetime(
+        final[['Ano', 'Mes', 'Dia']]
+    )
+
+    # Renomeia para facilitar leitura
+    final = final.rename(columns={
+        'OP_UNIQUE_CARRIER': 'Cia'
+    })
+
+    # Mantém apenas colunas finais
+    return final[['Cia', 'Data', 'Perc']]
+
+```
+# 5. Visualização em Mapa de Calor Estilo Calendário
+```{python}
+import matplotlib.pyplot as plt
+import calendar
+import numpy as np
+
+def baseCalendario(stats, cia):
+    # Filtra os dados para a companhia desejada
+    df = stats[stats['Cia'] == cia].copy()
+    df['Ano'] = df['Data'].dt.year
+    df['Mes'] = df['Data'].dt.month
+    df['Dia'] = df['Data'].dt.day
+
+    # Itera sobre cada mês e ano presentes no dataset
+    for ano in sorted(df['Ano'].unique()):
+        for mes in sorted(df[df['Ano'] == ano]['Mes'].unique()):
+            dados_mes = df[(df['Ano'] == ano) & (df['Mes'] == mes)]
+            if dados_mes.empty:
+                continue
+
+            # Dicionário {dia do mês: percentual de atraso}
+            dia_to_perc = dict(zip(dados_mes['Dia'], dados_mes['Perc']))
+
+            # Obtem o calendário do mês (matriz de semanas x dias da semana)
+            cal = calendar.Calendar(firstweekday=0)  # 0 = segunda-feira
+            semanas = cal.monthdayscalendar(ano, mes)  # matriz de semanas
+
+            # Constrói matriz de percentuais correspondente ao calendário
+            heat_data = []
+            for semana in semanas:
+                row = []
+                for dia in semana:
+                    if dia == 0:
+                        row.append(np.nan)  # vazio
+                    else:
+                        row.append(dia_to_perc.get(dia, np.nan))
+                heat_data.append(row)
+
+            heat_data = np.array(heat_data)
+
+            # Plot com matplotlib
+            fig, ax = plt.subplots(figsize=(10, 4))
+            cmap = plt.cm.get_cmap("coolwarm")  # gradiente de cores
+            heatmap = ax.imshow(heat_data, cmap=cmap, vmin=0, vmax=1)
+
+            # Configurações dos eixos
+            ax.set_xticks(np.arange(7))
+            ax.set_xticklabels(['Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb', 'Dom'])
+
+            ax.set_yticks(np.arange(len(semanas)))
+            ax.set_yticklabels([f"Semana {i+1}" for i in range(len(semanas))])
+
+            # Adiciona valores nas células
+            for i in range(len(semanas)):
+                for j in range(7):
+                    valor = heat_data[i, j]
+                    if not np.isnan(valor):
+                        ax.text(j, i, f"{valor:.2f}", ha="center", va="center", color="black", fontsize=8)
+
+            # Título, cor e exibição
+            ax.set_title(f"{cia} - {calendar.month_name[mes]} {ano}")
+            fig.colorbar(heatmap, ax=ax, label="Percentual de Atraso")
+
+            plt.tight_layout()
+            plt.show()
+
+```
+

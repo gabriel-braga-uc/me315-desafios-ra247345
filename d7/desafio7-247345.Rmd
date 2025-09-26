@@ -1,0 +1,291 @@
+---
+title: "desafio8-247345"
+author: "Gabriel Ozélo Braga"
+date: "2025-09-18"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+```{r}
+library(RSQLite)
+library(tidyverse)
+library(vroom)
+if(!"discoCopy.db" %in% list.files("../dados/")){
+file.copy("../dados/disco.db"
+,
+"../dados/discoCopy.db")
+} # Modificaremos esse arquivo
+```
+```{r}
+db <- dbConnect(SQLite(),
+"../dados/discoCopy.db")
+```
+Neste momento, existem as seguintes tabelas em disco.db:
+```{r}
+dbListTables(db)
+```
+A sintaxe para criar uma tabela vazia, no SQLite, é através do comando
+CREATE TABLE nome (col1 tipo, col2 tipo2, ...)
+```{r}
+dbExecute(db,
+"CREATE TABLE instruments
+(AlbumId INTEGER,
+TrackId INTEGER,
+ElectricGuitar INTEGER,
+Singer INTEGER,
+Trumpet INTEGER)")
+```
+## Removendo uma tabela
+
+```{r}
+dbListFields(db,
+'instruments')
+```
+
+Você pode remover uma tabela usando o comando DROP TABLE nome:
+
+```{r}
+dbExecute(db,
+"DROP TABLE instruments")
+```
+```{r}
+dbListTables(db)
+```
+Em geral, DROP TABLE é perigoso. Se você abrir seu servidor, pode ficar
+sujeito aos chamados "injection attacks"!
+
+## Um ligeiro parêntese:Bestpractices
+
+Esse exemplo está na documentação em https://db.rstudio.com: se você tem
+um aplicativo (por exemplo, em Shiny) que colhe inputs do usuário em aname
+e diz quais álbums deste artista estão listados:
+
+```{r}
+aname = "Gilberto Gil"
+sql = paste0("SELECT ArtistId FROM artists "
+,
+"WHERE Name = '"
+, aname,
+"'")
+aId = dbGetQuery(db, sql)
+sql = paste('SELECT Title FROM albums'
+,
+'WHERE ArtistId ='
+, aId)
+dbGetQuery(db, sql)
+```
+Um usuário malicioso pode inserir algo como
+```{r}
+aname <- "Gilberto Gil'; DROP TABLE 'albums"
+```
+
+E destruir seu banco de dados! 
+
+## Best practices
+
+O RSQLite oferece funções que executam queries com segurança.
+
+```{r}
+sql = paste("SELECT ArtistId FROM artists"
+,
+"WHERE Name = ?")
+query <- dbSendQuery(db, sql)
+dbBind(query, list("Gilberto Gil"))
+aId <- dbFetch(query)
+dbClearResult(query)
+# Segundo passo interno, não deve causar problema
+sql = paste('SELECT Title FROM albums'
+,
+'WHERE ArtistId ='
+, aId)
+dbGetQuery(db, sql)
+```
+
+## Incluindo linhas numa tabela
+
+Voltando ao caso de instrumentos, suponha que eu tenha criado a tabela
+"instruments", e quero completá-la com alguma informação. Uma maneira de
+fazê-lo é usando o comando INSERT INTO tabela VALUES (...)
+
+```{r}
+# Antes,riando de volta a tabela de instrumentos
+dbExecute(db,
+"CREATE TABLE instruments
+(AlbumId INTEGER,
+TrackId INTEGER,
+ElectricGuitar INTEGER,
+Singer INTEGER,
+Trumpet INTEGER)")
+dbListFields(db, 'instruments')
+```
+
+```{r}
+# Eu Tu Eles: AlbumId 85,
+sql = paste('SELECT TrackId, Name FROM tracks'
+,
+'WHERE AlbumId = 85')
+dbGetQuery(db, sql) %>% head
+```
+
+## Incluindo linhas numatabela
+
+```{r}
+dbExecute(db,
+"INSERT INTO instruments
+VALUES ('85'
+,
+'1075'
+, 0, 1, 0),
+('85'
+,
+'1078'
+, 0, 1, 0); ")
+```
+
+```{r}
+dbGetQuery(db,
+"SELECT * FROM instruments")
+```
+
+## Inserindo um atabela diretamente
+
+O data.frame mtcars é um exemplo famoso de data frame no R. Eu vou
+incluí-lo no nosso banco de dados:
+
+```{r}
+dbWriteTable(db,
+"mtcars"
+, mtcars)
+dbListTables(db)
+```
+Note que o atributo rownames (marcas dos carros) foi perdido! Mas há um
+parâmetro row.names em dbWriteTable.
+```{r}
+dbGetQuery(db,
+"SELECT * FROM mtcars") %>% head(3)
+```
+## Inserindo uma tabela diretamente: append
+
+Inserindo uma tabela diretamente: append
+
+```{r}
+theAvgCar <- mtcars %>%
+  summarise_all(function(x) round(mean(x), 2))
+theAvgCar
+```
+
+```{r}
+dbWriteTable(db,
+"mtcars"
+, theAvgCar, append = TRUE)
+dbGetQuery(db,
+"SELECT * FROM mtcars") %>% tail(3)
+```
+## Inserindo uma tabela direta mente: overwrite
+
+O parâmetro overwrite sobrescreve a tabela (use com cuidado!).
+
+```{r}
+dbWriteTable(db,
+"mtcars"
+, mtcars, overwrite = TRUE)
+dbGetQuery(db,
+"SELECT * FROM mtcars") %>% tail(3)
+```
+## Lendo chunks
+
+Em certo sentido, dbGetQuery() é um atalho para dbSendQuery() seguido de dbFetch() (e dbClearResult()). Uma vantagem de usar a sintaxe mais longa é que podemos ler dados em chunks:
+
+```{r}
+res <- dbSendQuery(db,
+"SELECT * FROM mtcars WHERE cyl = 4")
+while(!dbHasCompleted(res)){
+chunk <- dbFetch(res, n = 5)
+print(nrow(chunk))
+}
+
+```
+```{r}
+dbClearResult(res)
+```
+
+O exemplo acima só guarda o último chunk, e não é muito eficiente... mas pode ser suficiente se você estiver guardando os resultados com dbWriteTable e append = TRUE.
+
+## Fechando conexões
+
+É importante encerrar suas conexões com dbDisconnect(). Além disso, vou remover a cópia que fiz da database disco.db.
+
+```{r}
+dbDisconnect(db)
+if("discoCopy.db" %in% list.files("../dados/")){
+file.remove("../dados/discoCopy.db")
+}
+```
+## Criando sua base de dados
+```{r}
+airports <- read_csv("../dados/airports.csv"
+, col_types = "cccccdd")
+airlines <- read_csv("../dados/airlines.csv"
+, col_types = "cc")
+air <- dbConnect(SQLite(), dbname="../dados/air.db")
+dbWriteTable(air, name = "airports"
+, airports)
+dbWriteTable(air, name = "airlines"
+, airlines)
+dbListTables(air)
+```
+Você também pode usar a função copy_to(conn, df) do dplyr! A sintaxe é parecida. Vou agora destruir a conexão e a tabela.
+
+```{r}
+dbDisconnect(air)
+if("air.db" %in% list.files("../dados/")){
+file.remove("../dados/air.db")
+}
+```
+## Breveintroduçãoaodbply
+
+O pacote dbplyr estende algumas funcionalidades do dplyr a dados que
+estão armazenados em um bancos de dados externo.
+
+```{r}
+library(RSQLite)
+library(tidyverse)
+library(dbplyr)
+db <- dbConnect(SQLite(),
+"../dados/disco.db") # original
+tracks <- tbl(db,
+"tracks") # dplyr
+tracks %>% head(3)
+
+```
+## Verbos do dplyr disponíveis...
+
+```{r}
+meanTracks <- tracks %>%
+group_by(AlbumId) %>%
+summarise(AvLen = mean(Milliseconds, na.rm = TRUE),
+AvCost = mean(UnitPrice, na.rm = TRUE))
+meanTracks
+
+```
+
+## ...mas secretamente, sãocomandos de SQLite!
+
+```{r}
+meanTracks %>% show_query()
+```
+## Consulta, de fato
+
+Repare que o sumário só diz "... with more rows". Quando você decidir o que
+precisa, pode usar o comando collect().
+
+```{r}
+mT <- meanTracks %>% collect()
+mT
+```
+
+```{r}
+dbDisconnect(db)
+```
