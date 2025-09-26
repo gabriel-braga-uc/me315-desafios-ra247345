@@ -9,11 +9,11 @@
 <meta http-equiv="X-UA-Compatible" content="IE=EDGE" />
 
 
-<meta name="author" content="Gabriel Ozélo Braga" />
+<meta name="author" content="Gabriel Ozélo Braga - ra247345" />
 
-<meta name="date" content="2025-09-18" />
+<meta name="date" content="2025-08-21" />
 
-<title>desafio8-247345</title>
+<title>desafio02</title>
 
 <script>// Pandoc 2.9 adds attributes on both header and div. We remove the former (to
 // be compatible with the behavior of Pandoc < 2.8).
@@ -350,357 +350,167 @@ display: none;
 
 
 
-<h1 class="title toc-ignore">desafio8-247345</h1>
-<h4 class="author">Gabriel Ozélo Braga</h4>
-<h4 class="date">2025-09-18</h4>
+<h1 class="title toc-ignore">desafio02</h1>
+<h4 class="author">Gabriel Ozélo Braga - ra247345</h4>
+<h4 class="date">2025-08-21</h4>
 
 </div>
 
 
-<p>Momento de execução do código</p>
-<pre class="r"><code>print(Sys.time())</code></pre>
-<pre><code>## [1] &quot;2025-09-25 22:49:06 -03&quot;</code></pre>
-<pre class="r"><code>library(RSQLite)
-library(tidyverse)</code></pre>
-<pre><code>## ── Attaching core tidyverse packages ──────────────────────── tidyverse 2.0.0 ──
-## ✔ dplyr     1.1.4     ✔ readr     2.1.5
-## ✔ forcats   1.0.0     ✔ stringr   1.5.1
-## ✔ ggplot2   3.5.0     ✔ tibble    3.2.1
-## ✔ lubridate 1.9.4     ✔ tidyr     1.3.1
-## ✔ purrr     1.0.2     
-## ── Conflicts ────────────────────────────────────────── tidyverse_conflicts() ──
-## ✖ dplyr::filter() masks stats::filter()
-## ✖ dplyr::lag()    masks stats::lag()
-## ℹ Use the conflicted package (&lt;http://conflicted.r-lib.org/&gt;) to force all conflicts to become errors</code></pre>
-<pre class="r"><code>library(vroom)</code></pre>
-<pre><code>## 
-## Attaching package: &#39;vroom&#39;
-## 
-## The following objects are masked from &#39;package:readr&#39;:
-## 
-##     as.col_spec, col_character, col_date, col_datetime, col_double,
-##     col_factor, col_guess, col_integer, col_logical, col_number,
-##     col_skip, col_time, cols, cols_condense, cols_only, date_names,
-##     date_names_lang, date_names_langs, default_locale, fwf_cols,
-##     fwf_empty, fwf_positions, fwf_widths, locale, output_column,
-##     problems, spec</code></pre>
-<pre class="r"><code>if(!&quot;discoCopy.db&quot; %in% list.files(&quot;../dados/&quot;)){
-file.copy(&quot;../dados/disco.db&quot;
-,
-&quot;../dados/discoCopy.db&quot;)
-} # Modificaremos esse arquivo</code></pre>
-<pre><code>## [1] TRUE</code></pre>
-<pre class="r"><code>db &lt;- dbConnect(SQLite(),
-&quot;../dados/discoCopy.db&quot;)</code></pre>
-<p>Neste momento, existem as seguintes tabelas em disco.db:</p>
-<pre class="r"><code>dbListTables(db)</code></pre>
-<pre><code>##  [1] &quot;albums&quot;          &quot;artists&quot;         &quot;customers&quot;       &quot;employees&quot;      
-##  [5] &quot;genres&quot;          &quot;invoice_items&quot;   &quot;invoices&quot;        &quot;media_types&quot;    
-##  [9] &quot;playlist_track&quot;  &quot;playlists&quot;       &quot;sqlite_sequence&quot; &quot;sqlite_stat1&quot;   
-## [13] &quot;tracks&quot;</code></pre>
-<p>A sintaxe para criar uma tabela vazia, no SQLite, é através do
-comando CREATE TABLE nome (col1 tipo, col2 tipo2, …)</p>
-<pre class="r"><code>dbExecute(db,
-&quot;CREATE TABLE instruments
-(AlbumId INTEGER,
-TrackId INTEGER,
-ElectricGuitar INTEGER,
-Singer INTEGER,
-Trumpet INTEGER)&quot;)</code></pre>
-<pre><code>## [1] 0</code></pre>
-<div id="removendo-uma-tabela" class="section level2">
-<h2>Removendo uma tabela</h2>
-<pre class="r"><code>dbListFields(db,
-&#39;instruments&#39;)</code></pre>
-<pre><code>## [1] &quot;AlbumId&quot;        &quot;TrackId&quot;        &quot;ElectricGuitar&quot; &quot;Singer&quot;        
-## [5] &quot;Trumpet&quot;</code></pre>
-<p>Você pode remover uma tabela usando o comando DROP TABLE nome:</p>
-<pre class="r"><code>dbExecute(db,
-&quot;DROP TABLE instruments&quot;)</code></pre>
-<pre><code>## [1] 0</code></pre>
-<pre class="r"><code>dbListTables(db)</code></pre>
-<pre><code>##  [1] &quot;albums&quot;          &quot;artists&quot;         &quot;customers&quot;       &quot;employees&quot;      
-##  [5] &quot;genres&quot;          &quot;invoice_items&quot;   &quot;invoices&quot;        &quot;media_types&quot;    
-##  [9] &quot;playlist_track&quot;  &quot;playlists&quot;       &quot;sqlite_sequence&quot; &quot;sqlite_stat1&quot;   
-## [13] &quot;tracks&quot;</code></pre>
-<p>Em geral, DROP TABLE é perigoso. Se você abrir seu servidor, pode
-ficar sujeito aos chamados “injection attacks”!</p>
+<div id="estatísticas-suficientes" class="section level1">
+<h1>1. Estatísticas Suficientes</h1>
+<p>Queremos calcular, para cada dia de 2015 e para cada Cia. Aérea (AA,
+DL, UA, US):</p>
+<p>Total de voos</p>
+<p>Número de voos com ARRIVAL_DELAY &gt; 10</p>
+<p>Percentual de atraso = num_atrasos / total_voos</p>
+<p>Assim vemos que as estatísticas suficientes são simplesmente o número
+de atrasos e o número de voos totais. # 2. Função getStats:</p>
+<pre class="python"><code>import pandas as pd
+def getStats(chunk, pos):
+    # Filtra apenas as companhias de interesse
+    cia_filter = [&#39;AA&#39;, &#39;DL&#39;, &#39;UA&#39;, &#39;US&#39;]
+    df = chunk[chunk[&#39;OP_UNIQUE_CARRIER&#39;].isin(cia_filter)].copy()
+    
+    # Remove linhas com valores ausentes
+    df = df.dropna(subset=[&#39;FL_DATE&#39;, &#39;OP_UNIQUE_CARRIER&#39;, &#39;ARR_DELAY&#39;])
+
+    # Extrai ano, mês e dia
+    df[&#39;FL_DATE&#39;] = pd.to_datetime(df[&#39;FL_DATE&#39;])
+    df[&#39;Ano&#39;] = df[&#39;FL_DATE&#39;].dt.year
+    df[&#39;Mes&#39;] = df[&#39;FL_DATE&#39;].dt.month
+    df[&#39;Dia&#39;] = df[&#39;FL_DATE&#39;].dt.day
+
+    # Define se houve atraso
+    df[&#39;Atraso&#39;] = df[&#39;ARR_DELAY&#39;] &gt; 10
+
+    # Agrupa e calcula estatísticas
+    grouped = (
+        df.groupby([&#39;Ano&#39;, &#39;Mes&#39;, &#39;Dia&#39;, &#39;OP_UNIQUE_CARRIER&#39;])
+        .agg(
+            total_voos=(&#39;Atraso&#39;, &#39;count&#39;),
+            atrasos=(&#39;Atraso&#39;, &#39;sum&#39;)
+        )
+        .reset_index()
+    )
+
+    return grouped</code></pre>
 </div>
-<div id="um-ligeiro-parêntesebestpractices" class="section level2">
-<h2>Um ligeiro parêntese:Bestpractices</h2>
-<p>Esse exemplo está na documentação em <a href="https://db.rstudio.com" class="uri">https://db.rstudio.com</a>: se você tem um aplicativo (por
-exemplo, em Shiny) que colhe inputs do usuário em aname e diz quais
-álbums deste artista estão listados:</p>
-<pre class="r"><code>aname = &quot;Gilberto Gil&quot;
-sql = paste0(&quot;SELECT ArtistId FROM artists &quot;
-,
-&quot;WHERE Name = &#39;&quot;
-, aname,
-&quot;&#39;&quot;)
-aId = dbGetQuery(db, sql)
-sql = paste(&#39;SELECT Title FROM albums&#39;
-,
-&#39;WHERE ArtistId =&#39;
-, aId)
-dbGetQuery(db, sql)</code></pre>
-<pre><code>##                                      Title
-## 1                 As Canções de Eu Tu Eles
-## 2             Quanta Gente Veio Ver (Live)
-## 3 Quanta Gente Veio ver--Bônus De Carnaval</code></pre>
-<p>Um usuário malicioso pode inserir algo como</p>
-<pre class="r"><code>aname &lt;- &quot;Gilberto Gil&#39;; DROP TABLE &#39;albums&quot;</code></pre>
-<p>E destruir seu banco de dados!</p>
+<div id="leitura-em-blocos-chunks-com-pandas.read_csv" class="section level1">
+<h1>3. Leitura em blocos (chunks) com pandas.read_csv</h1>
+<pre class="python"><code>from zipfile import ZipFile
+
+def process_file(filepath, chunksize=100000):
+    stats_list = []
+    with ZipFile(filepath) as z:
+        # Considera o primeiro arquivo dentro do zip
+        csv_name = z.namelist()[0]
+        with z.open(csv_name) as f:
+            for i, chunk in enumerate(pd.read_csv(
+                f,
+                chunksize=chunksize,
+                usecols=[&#39;FL_DATE&#39;, &#39;OP_UNIQUE_CARRIER&#39;, &#39;ARR_DELAY&#39;],
+                parse_dates=[&#39;FL_DATE&#39;]
+            )):
+                stats = getStats(chunk, i)
+                stats_list.append(stats)
+    
+    # Concatena todos os resultados parciais
+    return pd.concat(stats_list, ignore_index=True)</code></pre>
 </div>
-<div id="best-practices" class="section level2">
-<h2>Best practices</h2>
-<p>O RSQLite oferece funções que executam queries com segurança.</p>
-<pre class="r"><code>sql = paste(&quot;SELECT ArtistId FROM artists&quot;
-,
-&quot;WHERE Name = ?&quot;)
-query &lt;- dbSendQuery(db, sql)
-dbBind(query, list(&quot;Gilberto Gil&quot;))
-aId &lt;- dbFetch(query)
-dbClearResult(query)
-# Segundo passo interno, não deve causar problema
-sql = paste(&#39;SELECT Title FROM albums&#39;
-,
-&#39;WHERE ArtistId =&#39;
-, aId)
-dbGetQuery(db, sql)</code></pre>
-<pre><code>##                                      Title
-## 1                 As Canções de Eu Tu Eles
-## 2             Quanta Gente Veio Ver (Live)
-## 3 Quanta Gente Veio ver--Bônus De Carnaval</code></pre>
+<div id="função-computestats" class="section level1">
+<h1>4. Função computeStats</h1>
+<pre class="python"><code>def computeStats(stats_df):
+    final = (
+        stats_df.groupby([&#39;OP_UNIQUE_CARRIER&#39;, &#39;Ano&#39;, &#39;Mes&#39;, &#39;Dia&#39;])
+        .agg({
+            &#39;atrasos&#39;: &#39;sum&#39;,
+            &#39;total_voos&#39;: &#39;sum&#39;
+        })
+        .reset_index()
+    )
+
+    # Percentual de atrasos
+    final[&#39;Perc&#39;] = final[&#39;atrasos&#39;] / final[&#39;total_voos&#39;]
+    
+    # Cria a coluna de data
+    final[&#39;Data&#39;] = pd.to_datetime(
+        final[[&#39;Ano&#39;, &#39;Mes&#39;, &#39;Dia&#39;]]
+    )
+
+    # Renomeia para facilitar leitura
+    final = final.rename(columns={
+        &#39;OP_UNIQUE_CARRIER&#39;: &#39;Cia&#39;
+    })
+
+    # Mantém apenas colunas finais
+    return final[[&#39;Cia&#39;, &#39;Data&#39;, &#39;Perc&#39;]]</code></pre>
 </div>
-<div id="incluindo-linhas-numa-tabela" class="section level2">
-<h2>Incluindo linhas numa tabela</h2>
-<p>Voltando ao caso de instrumentos, suponha que eu tenha criado a
-tabela “instruments”, e quero completá-la com alguma informação. Uma
-maneira de fazê-lo é usando o comando INSERT INTO tabela VALUES (…)</p>
-<pre class="r"><code># Antes,riando de volta a tabela de instrumentos
-dbExecute(db,
-&quot;CREATE TABLE instruments
-(AlbumId INTEGER,
-TrackId INTEGER,
-ElectricGuitar INTEGER,
-Singer INTEGER,
-Trumpet INTEGER)&quot;)</code></pre>
-<pre><code>## [1] 0</code></pre>
-<pre class="r"><code>dbListFields(db, &#39;instruments&#39;)</code></pre>
-<pre><code>## [1] &quot;AlbumId&quot;        &quot;TrackId&quot;        &quot;ElectricGuitar&quot; &quot;Singer&quot;        
-## [5] &quot;Trumpet&quot;</code></pre>
-<pre class="r"><code># Eu Tu Eles: AlbumId 85,
-sql = paste(&#39;SELECT TrackId, Name FROM tracks&#39;
-,
-&#39;WHERE AlbumId = 85&#39;)
-dbGetQuery(db, sql) %&gt;% head</code></pre>
-<pre><code>##   TrackId                Name
-## 1    1073 Óia Eu Aqui De Novo
-## 2    1074      Baião Da Penha
-## 3    1075 Esperando Na Janela
-## 4    1076            Juazeiro
-## 5    1077 Último Pau-De-Arara
-## 6    1078          Asa Branca</code></pre>
-</div>
-<div id="incluindo-linhas-numatabela" class="section level2">
-<h2>Incluindo linhas numatabela</h2>
-<pre class="r"><code>dbExecute(db,
-&quot;INSERT INTO instruments
-VALUES (&#39;85&#39;
-,
-&#39;1075&#39;
-, 0, 1, 0),
-(&#39;85&#39;
-,
-&#39;1078&#39;
-, 0, 1, 0); &quot;)</code></pre>
-<pre><code>## [1] 2</code></pre>
-<pre class="r"><code>dbGetQuery(db,
-&quot;SELECT * FROM instruments&quot;)</code></pre>
-<pre><code>##   AlbumId TrackId ElectricGuitar Singer Trumpet
-## 1      85    1075              0      1       0
-## 2      85    1078              0      1       0</code></pre>
-</div>
-<div id="inserindo-um-atabela-diretamente" class="section level2">
-<h2>Inserindo um atabela diretamente</h2>
-<p>O data.frame mtcars é um exemplo famoso de data frame no R. Eu vou
-incluí-lo no nosso banco de dados:</p>
-<pre class="r"><code>dbWriteTable(db,
-&quot;mtcars&quot;
-, mtcars)
-dbListTables(db)</code></pre>
-<pre><code>##  [1] &quot;albums&quot;          &quot;artists&quot;         &quot;customers&quot;       &quot;employees&quot;      
-##  [5] &quot;genres&quot;          &quot;instruments&quot;     &quot;invoice_items&quot;   &quot;invoices&quot;       
-##  [9] &quot;media_types&quot;     &quot;mtcars&quot;          &quot;playlist_track&quot;  &quot;playlists&quot;      
-## [13] &quot;sqlite_sequence&quot; &quot;sqlite_stat1&quot;    &quot;tracks&quot;</code></pre>
-<p>Note que o atributo rownames (marcas dos carros) foi perdido! Mas há
-um parâmetro row.names em dbWriteTable.</p>
-<pre class="r"><code>dbGetQuery(db,
-&quot;SELECT * FROM mtcars&quot;) %&gt;% head(3)</code></pre>
-<pre><code>##    mpg cyl disp  hp drat    wt  qsec vs am gear carb
-## 1 21.0   6  160 110 3.90 2.620 16.46  0  1    4    4
-## 2 21.0   6  160 110 3.90 2.875 17.02  0  1    4    4
-## 3 22.8   4  108  93 3.85 2.320 18.61  1  1    4    1</code></pre>
-</div>
-<div id="inserindo-uma-tabela-diretamente-append" class="section level2">
-<h2>Inserindo uma tabela diretamente: append</h2>
-<p>Inserindo uma tabela diretamente: append</p>
-<pre class="r"><code>theAvgCar &lt;- mtcars %&gt;%
-  summarise_all(function(x) round(mean(x), 2))
-theAvgCar</code></pre>
-<pre><code>##     mpg  cyl   disp     hp drat   wt  qsec   vs   am gear carb
-## 1 20.09 6.19 230.72 146.69  3.6 3.22 17.85 0.44 0.41 3.69 2.81</code></pre>
-<pre class="r"><code>dbWriteTable(db,
-&quot;mtcars&quot;
-, theAvgCar, append = TRUE)
-dbGetQuery(db,
-&quot;SELECT * FROM mtcars&quot;) %&gt;% tail(3)</code></pre>
-<pre><code>##      mpg  cyl   disp     hp drat   wt  qsec   vs   am gear carb
-## 31 15.00 8.00 301.00 335.00 3.54 3.57 14.60 0.00 1.00 5.00 8.00
-## 32 21.40 4.00 121.00 109.00 4.11 2.78 18.60 1.00 1.00 4.00 2.00
-## 33 20.09 6.19 230.72 146.69 3.60 3.22 17.85 0.44 0.41 3.69 2.81</code></pre>
-</div>
-<div id="inserindo-uma-tabela-direta-mente-overwrite" class="section level2">
-<h2>Inserindo uma tabela direta mente: overwrite</h2>
-<p>O parâmetro overwrite sobrescreve a tabela (use com cuidado!).</p>
-<pre class="r"><code>dbWriteTable(db,
-&quot;mtcars&quot;
-, mtcars, overwrite = TRUE)
-dbGetQuery(db,
-&quot;SELECT * FROM mtcars&quot;) %&gt;% tail(3)</code></pre>
-<pre><code>##     mpg cyl disp  hp drat   wt qsec vs am gear carb
-## 30 19.7   6  145 175 3.62 2.77 15.5  0  1    5    6
-## 31 15.0   8  301 335 3.54 3.57 14.6  0  1    5    8
-## 32 21.4   4  121 109 4.11 2.78 18.6  1  1    4    2</code></pre>
-</div>
-<div id="lendo-chunks" class="section level2">
-<h2>Lendo chunks</h2>
-<p>Em certo sentido, dbGetQuery() é um atalho para dbSendQuery() seguido
-de dbFetch() (e dbClearResult()). Uma vantagem de usar a sintaxe mais
-longa é que podemos ler dados em chunks:</p>
-<pre class="r"><code>res &lt;- dbSendQuery(db,
-&quot;SELECT * FROM mtcars WHERE cyl = 4&quot;)
-while(!dbHasCompleted(res)){
-chunk &lt;- dbFetch(res, n = 5)
-print(nrow(chunk))
-}</code></pre>
-<pre><code>## [1] 5
-## [1] 5
-## [1] 1</code></pre>
-<pre class="r"><code>dbClearResult(res)</code></pre>
-<p>O exemplo acima só guarda o último chunk, e não é muito eficiente…
-mas pode ser suficiente se você estiver guardando os resultados com
-dbWriteTable e append = TRUE.</p>
-</div>
-<div id="fechando-conexões" class="section level2">
-<h2>Fechando conexões</h2>
-<p>É importante encerrar suas conexões com dbDisconnect(). Além disso,
-vou remover a cópia que fiz da database disco.db.</p>
-<pre class="r"><code>dbDisconnect(db)
-if(&quot;discoCopy.db&quot; %in% list.files(&quot;../dados/&quot;)){
-file.remove(&quot;../dados/discoCopy.db&quot;)
-}</code></pre>
-<pre><code>## [1] TRUE</code></pre>
-</div>
-<div id="criando-sua-base-de-dados" class="section level2">
-<h2>Criando sua base de dados</h2>
-<pre class="r"><code>airports &lt;- read_csv(&quot;../dados/airports.csv&quot;
-, col_types = &quot;cccccdd&quot;)
-airlines &lt;- read_csv(&quot;../dados/airlines.csv&quot;
-, col_types = &quot;cc&quot;)
-air &lt;- dbConnect(SQLite(), dbname=&quot;../dados/air.db&quot;)
-dbWriteTable(air, name = &quot;airports&quot;
-, airports)
-dbWriteTable(air, name = &quot;airlines&quot;
-, airlines)
-dbListTables(air)</code></pre>
-<pre><code>## [1] &quot;airlines&quot; &quot;airports&quot;</code></pre>
-<p>Você também pode usar a função copy_to(conn, df) do dplyr! A sintaxe
-é parecida. Vou agora destruir a conexão e a tabela.</p>
-<pre class="r"><code>dbDisconnect(air)
-if(&quot;air.db&quot; %in% list.files(&quot;../dados/&quot;)){
-file.remove(&quot;../dados/air.db&quot;)
-}</code></pre>
-<pre><code>## [1] TRUE</code></pre>
-</div>
-<div id="breveintroduçãoaodbply" class="section level2">
-<h2>Breveintroduçãoaodbply</h2>
-<p>O pacote dbplyr estende algumas funcionalidades do dplyr a dados que
-estão armazenados em um bancos de dados externo.</p>
-<pre class="r"><code>library(RSQLite)
-library(tidyverse)
-library(dbplyr)</code></pre>
-<pre><code>## 
-## Attaching package: &#39;dbplyr&#39;</code></pre>
-<pre><code>## The following objects are masked from &#39;package:dplyr&#39;:
-## 
-##     ident, sql</code></pre>
-<pre class="r"><code>db &lt;- dbConnect(SQLite(),
-&quot;../dados/disco.db&quot;) # original
-tracks &lt;- tbl(db,
-&quot;tracks&quot;) # dplyr
-tracks %&gt;% head(3)</code></pre>
-<pre><code>## # Source:   SQL [3 x 9]
-## # Database: sqlite 3.47.1 [C:\Users\Gabriel\Documents\GitHub\me315-desafios-ra247345\dados\disco.db]
-##   TrackId Name          AlbumId MediaTypeId GenreId Composer Milliseconds  Bytes
-##     &lt;int&gt; &lt;chr&gt;           &lt;int&gt;       &lt;int&gt;   &lt;int&gt; &lt;chr&gt;           &lt;int&gt;  &lt;int&gt;
-## 1       1 For Those Ab…       1           1       1 Angus Y…       343719 1.12e7
-## 2       2 Balls to the…       2           2       1 &lt;NA&gt;           342562 5.51e6
-## 3       3 Fast As a Sh…       3           2       1 F. Balt…       230619 3.99e6
-## # ℹ 1 more variable: UnitPrice &lt;dbl&gt;</code></pre>
-</div>
-<div id="verbos-do-dplyr-disponíveis" class="section level2">
-<h2>Verbos do dplyr disponíveis…</h2>
-<pre class="r"><code>meanTracks &lt;- tracks %&gt;%
-group_by(AlbumId) %&gt;%
-summarise(AvLen = mean(Milliseconds, na.rm = TRUE),
-AvCost = mean(UnitPrice, na.rm = TRUE))
-meanTracks</code></pre>
-<pre><code>## # Source:   SQL [?? x 3]
-## # Database: sqlite 3.47.1 [C:\Users\Gabriel\Documents\GitHub\me315-desafios-ra247345\dados\disco.db]
-##    AlbumId   AvLen AvCost
-##      &lt;int&gt;   &lt;dbl&gt;  &lt;dbl&gt;
-##  1       1 240042.   0.99
-##  2       2 342562    0.99
-##  3       3 286029.   0.99
-##  4       4 306657.   0.99
-##  5       5 294114.   0.99
-##  6       6 265456.   0.99
-##  7       7 270780.   0.99
-##  8       8 207638.   0.99
-##  9       9 333926.   0.99
-## 10      10 280551.   0.99
-## # ℹ more rows</code></pre>
-</div>
-<div id="mas-secretamente-sãocomandos-de-sqlite" class="section level2">
-<h2>…mas secretamente, sãocomandos de SQLite!</h2>
-<pre class="r"><code>meanTracks %&gt;% show_query()</code></pre>
-<pre><code>## &lt;SQL&gt;
-## SELECT `AlbumId`, AVG(`Milliseconds`) AS `AvLen`, AVG(`UnitPrice`) AS `AvCost`
-## FROM `tracks`
-## GROUP BY `AlbumId`</code></pre>
-</div>
-<div id="consulta-de-fato" class="section level2">
-<h2>Consulta, de fato</h2>
-<p>Repare que o sumário só diz “… with more rows”. Quando você decidir o
-que precisa, pode usar o comando collect().</p>
-<pre class="r"><code>mT &lt;- meanTracks %&gt;% collect()
-mT</code></pre>
-<pre><code>## # A tibble: 347 × 3
-##    AlbumId   AvLen AvCost
-##      &lt;int&gt;   &lt;dbl&gt;  &lt;dbl&gt;
-##  1       1 240042.   0.99
-##  2       2 342562    0.99
-##  3       3 286029.   0.99
-##  4       4 306657.   0.99
-##  5       5 294114.   0.99
-##  6       6 265456.   0.99
-##  7       7 270780.   0.99
-##  8       8 207638.   0.99
-##  9       9 333926.   0.99
-## 10      10 280551.   0.99
-## # ℹ 337 more rows</code></pre>
-<pre class="r"><code>dbDisconnect(db)</code></pre>
+<div id="visualização-em-mapa-de-calor-estilo-calendário" class="section level1">
+<h1>5. Visualização em Mapa de Calor Estilo Calendário</h1>
+<pre class="python"><code>import matplotlib.pyplot as plt
+import calendar
+import numpy as np
+
+def baseCalendario(stats, cia):
+    # Filtra os dados para a companhia desejada
+    df = stats[stats[&#39;Cia&#39;] == cia].copy()
+    df[&#39;Ano&#39;] = df[&#39;Data&#39;].dt.year
+    df[&#39;Mes&#39;] = df[&#39;Data&#39;].dt.month
+    df[&#39;Dia&#39;] = df[&#39;Data&#39;].dt.day
+
+    # Itera sobre cada mês e ano presentes no dataset
+    for ano in sorted(df[&#39;Ano&#39;].unique()):
+        for mes in sorted(df[df[&#39;Ano&#39;] == ano][&#39;Mes&#39;].unique()):
+            dados_mes = df[(df[&#39;Ano&#39;] == ano) &amp; (df[&#39;Mes&#39;] == mes)]
+            if dados_mes.empty:
+                continue
+
+            # Dicionário {dia do mês: percentual de atraso}
+            dia_to_perc = dict(zip(dados_mes[&#39;Dia&#39;], dados_mes[&#39;Perc&#39;]))
+
+            # Obtem o calendário do mês (matriz de semanas x dias da semana)
+            cal = calendar.Calendar(firstweekday=0)  # 0 = segunda-feira
+            semanas = cal.monthdayscalendar(ano, mes)  # matriz de semanas
+
+            # Constrói matriz de percentuais correspondente ao calendário
+            heat_data = []
+            for semana in semanas:
+                row = []
+                for dia in semana:
+                    if dia == 0:
+                        row.append(np.nan)  # vazio
+                    else:
+                        row.append(dia_to_perc.get(dia, np.nan))
+                heat_data.append(row)
+
+            heat_data = np.array(heat_data)
+
+            # Plot com matplotlib
+            fig, ax = plt.subplots(figsize=(10, 4))
+            cmap = plt.cm.get_cmap(&quot;coolwarm&quot;)  # gradiente de cores
+            heatmap = ax.imshow(heat_data, cmap=cmap, vmin=0, vmax=1)
+
+            # Configurações dos eixos
+            ax.set_xticks(np.arange(7))
+            ax.set_xticklabels([&#39;Seg&#39;, &#39;Ter&#39;, &#39;Qua&#39;, &#39;Qui&#39;, &#39;Sex&#39;, &#39;Sáb&#39;, &#39;Dom&#39;])
+
+            ax.set_yticks(np.arange(len(semanas)))
+            ax.set_yticklabels([f&quot;Semana {i+1}&quot; for i in range(len(semanas))])
+
+            # Adiciona valores nas células
+            for i in range(len(semanas)):
+                for j in range(7):
+                    valor = heat_data[i, j]
+                    if not np.isnan(valor):
+                        ax.text(j, i, f&quot;{valor:.2f}&quot;, ha=&quot;center&quot;, va=&quot;center&quot;, color=&quot;black&quot;, fontsize=8)
+
+            # Título, cor e exibição
+            ax.set_title(f&quot;{cia} - {calendar.month_name[mes]} {ano}&quot;)
+            fig.colorbar(heatmap, ax=ax, label=&quot;Percentual de Atraso&quot;)
+
+            plt.tight_layout()
+            plt.show()</code></pre>
 </div>
 
 

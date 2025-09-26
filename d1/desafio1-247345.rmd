@@ -1,0 +1,37 @@
+---
+title: "desafio1-247345"
+author: "Gabriel Ozélo Braga"
+date: "2025-08-07"
+output: html_document
+---
+Momento de execução.
+```{r}
+print(Sys.time())
+```
+
+Professor aviso importante, o flights.csv.zip e muito grande! O senhor precisa baixa-lo tê-lo na pasta dados para funcionar.
+```{r}
+time1 <- Sys.time()
+data01 <- read.csv("../dados/flights.csv.zip")
+time2 <- Sys.time()
+print(paste("Carregou em: ", time2 - time1, "s", sep=""))
+```
+```{r}
+library(readr)
+time1 <- Sys.time()
+data02 <- read_csv("../dados/flights.csv.zip")
+time2 <- Sys.time()
+print(paste("Carregou em: ", time2 - time1, "s", sep=""))
+```
+
+```{python}
+import pandas as pd
+import time
+start = time.perf_counter()
+#data03 = pd.read_csv("../dados/flights.csv.zip")
+end = time.perf_counter()
+print("Carregou em: " + str(end - start) + "s")
+```
+
+
+Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.

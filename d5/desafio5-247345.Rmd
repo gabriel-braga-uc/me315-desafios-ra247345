@@ -8,11 +8,15 @@ output: html_document
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 ```
-
+Momento de execução do código
+```{r}
+print(Sys.time())
+```
 ```{r}
 #install.packages("RSQLite")
 library(RSQLite)
-db = dbConnect(SQLite(), "disco.db")
+dbOriginal = dbConnect(SQLite(), "../dados/disco.db")
+db <- dbOriginal
 dbListTables(db)
 dbListFields(db, "albums")
 album_db = dbGetQuery(db,

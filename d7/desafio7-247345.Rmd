@@ -8,6 +8,10 @@ output: html_document
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 ```
+Momento de execução do código
+```{r}
+print(Sys.time())
+```
 ```{r}
 library(RSQLite)
 library(tidyverse)
