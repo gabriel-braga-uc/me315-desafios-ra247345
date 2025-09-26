@@ -1,0 +1,74 @@
+---
+title: "desafio3-ra247345"
+author: "Gabriel Ozélo Braga - ra247345"
+date: "2025-08-21"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+Momento de execução do código
+```{r}
+print(Sys.time())
+```
+## Os conjuntos de dados selecionados foram "iris.parquet", um dataset clássico de medidas de flowers e o JSON escolhido foi o também clássico mtcars.
+
+```{r}
+
+# Antes de tudo, vamos garantir que os pacotes necessários estão instalados
+# "arrow" é usado para ler arquivos parquet
+# "jsonlite" é usado para ler arquivos JSON
+if (!require(arrow)) install.packages("arrow")
+if (!require(jsonlite)) install.packages("jsonlite")
+
+# Carregar as bibliotecas para podermos usar suas funções
+library(arrow)
+library(jsonlite)
+```
+```{r}
+# ---------------------------------------------------
+# 1) Ler o arquivo iris.parquet
+# ---------------------------------------------------
+# Usamos read_parquet() do pacote arrow.
+# Caminho relativo: "../dados/iris.parquet"
+# O resultado será convertido automaticamente para data.frame
+iris_df <- as.data.frame(read_parquet("../dados/iris.parquet"))
+
+# Conferir rapidamente se deu certo
+# head() mostra as primeiras linhas
+cat("Arquivo iris.parquet carregado com sucesso:\n")
+print(head(iris_df))
+
+```
+```{r}
+# ---------------------------------------------------
+# 2) Ler o arquivo mtcars.json que está no formato NDJSON
+# ---------------------------------------------------
+
+# a) Ler o arquivo inteiro como texto, linha por linha
+json_lines <- readLines("../dados/mtcars.json")
+
+# b) Converter cada linha (cada uma é um JSON válido) em uma lista
+json_list <- lapply(json_lines, fromJSON)
+
+# c) Combinar todas as listas em um único data frame
+#    bind_rows() empilha todas as linhas em formato tabular
+if (!require(dplyr)) install.packages("dplyr")
+library(dplyr)
+
+mtcars_df <- bind_rows(json_list)
+
+# Conferir o resultado
+cat("\nArquivo mtcars.json carregado com sucesso (NDJSON):\n")
+print(head(mtcars_df))
+```
+```{r}
+# ---------------------------------------------------
+# Resultado final:
+# Agora temos dois data frames:
+#   - iris_df com os dados do arquivo parquet
+#   - mtcars_df com os dados do arquivo JSON
+# ---------------------------------------------------
+```
+

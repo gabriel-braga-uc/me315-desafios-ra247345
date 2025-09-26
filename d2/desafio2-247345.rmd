@@ -1,5 +1,5 @@
 ---
-title: "desafio02"
+title: "desafio2-ra247345"
 author: "Gabriel Ozélo Braga - ra247345"
 date: "2025-08-21"
 output: html_document
@@ -8,6 +8,10 @@ output: html_document
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 library(reticulate)
+```
+Momento de execução do código
+```{r}
+print(Sys.time())
 ```
 # 1. Estatísticas Suficientes
 Queremos calcular, para cada dia de 2015 e para cada Cia. Aérea (AA, DL, UA, US):
@@ -167,7 +171,9 @@ def baseCalendario(stats, cia):
             fig.colorbar(heatmap, ax=ax, label="Percentual de Atraso")
 
             plt.tight_layout()
-            plt.show()
+            
+            plt.show(block=True)
+baseCalendario(stats, "NOME_DA_CIA")
 
 ```
 

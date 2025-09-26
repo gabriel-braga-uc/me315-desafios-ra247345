@@ -13,7 +13,7 @@
 
 <meta name="date" content="2025-08-21" />
 
-<title>desafio02</title>
+<title>desafio3-ra247345</title>
 
 <script>// Pandoc 2.9 adds attributes on both header and div. We remove the former (to
 // be compatible with the behavior of Pandoc < 2.8).
@@ -350,31 +350,101 @@ display: none;
 
 
 
-<h1 class="title toc-ignore">desafio02</h1>
+<h1 class="title toc-ignore">desafio3-ra247345</h1>
 <h4 class="author">Gabriel Ozélo Braga - ra247345</h4>
 <h4 class="date">2025-08-21</h4>
 
 </div>
 
 
-<div id="estatísticas-suficientes" class="section level1">
-<h1>1. Estatísticas Suficientes</h1>
-<p>Queremos calcular, para cada dia de 2015 e para cada Cia. Aérea (AA,
-DL, UA, US):</p>
-<p>Total de voos</p>
-<p>Número de voos com ARRIVAL_DELAY &gt; 10</p>
-<p>Percentual de atraso = num_atrasos / total_voos</p>
-<p>Assim vemos que as estatísticas suficientes são simplesmente o número
-de atrasos e o número de voos totais. # 2. Função getStats:</p>
-</div>
-<div id="leitura-em-blocos-chunks-com-pandas.read_csv" class="section level1">
-<h1>3. Leitura em blocos (chunks) com pandas.read_csv</h1>
-</div>
-<div id="função-computestats" class="section level1">
-<h1>4. Função computeStats</h1>
-</div>
-<div id="visualização-em-mapa-de-calor-estilo-calendário" class="section level1">
-<h1>5. Visualização em Mapa de Calor Estilo Calendário</h1>
+<p>Momento de execução do código</p>
+<pre class="r"><code>print(Sys.time())</code></pre>
+<pre><code>## [1] &quot;2025-09-25 23:32:54 -03&quot;</code></pre>
+<div id="os-conjuntos-de-dados-selecionados-foram-iris.parquet-um-dataset-clássico-de-medidas-de-flowers-e-o-json-escolhido-foi-o-também-clássico-mtcars." class="section level2">
+<h2>Os conjuntos de dados selecionados foram “iris.parquet”, um dataset
+clássico de medidas de flowers e o JSON escolhido foi o também clássico
+mtcars.</h2>
+<pre class="r"><code># Antes de tudo, vamos garantir que os pacotes necessários estão instalados
+# &quot;arrow&quot; é usado para ler arquivos parquet
+# &quot;jsonlite&quot; é usado para ler arquivos JSON
+if (!require(arrow)) install.packages(&quot;arrow&quot;)</code></pre>
+<pre><code>## Carregando pacotes exigidos: arrow</code></pre>
+<pre><code>## 
+## Attaching package: &#39;arrow&#39;</code></pre>
+<pre><code>## The following object is masked from &#39;package:utils&#39;:
+## 
+##     timestamp</code></pre>
+<pre class="r"><code>if (!require(jsonlite)) install.packages(&quot;jsonlite&quot;)</code></pre>
+<pre><code>## Carregando pacotes exigidos: jsonlite</code></pre>
+<pre class="r"><code># Carregar as bibliotecas para podermos usar suas funções
+library(arrow)
+library(jsonlite)</code></pre>
+<pre class="r"><code># ---------------------------------------------------
+# 1) Ler o arquivo iris.parquet
+# ---------------------------------------------------
+# Usamos read_parquet() do pacote arrow.
+# Caminho relativo: &quot;../dados/iris.parquet&quot;
+# O resultado será convertido automaticamente para data.frame
+iris_df &lt;- as.data.frame(read_parquet(&quot;../dados/iris.parquet&quot;))
+
+# Conferir rapidamente se deu certo
+# head() mostra as primeiras linhas
+cat(&quot;Arquivo iris.parquet carregado com sucesso:\n&quot;)</code></pre>
+<pre><code>## Arquivo iris.parquet carregado com sucesso:</code></pre>
+<pre class="r"><code>print(head(iris_df))</code></pre>
+<pre><code>##   sepal.length sepal.width petal.length petal.width variety
+## 1          5.1         3.5          1.4         0.2  Setosa
+## 2          4.9         3.0          1.4         0.2  Setosa
+## 3          4.7         3.2          1.3         0.2  Setosa
+## 4          4.6         3.1          1.5         0.2  Setosa
+## 5          5.0         3.6          1.4         0.2  Setosa
+## 6          5.4         3.9          1.7         0.4  Setosa</code></pre>
+<pre class="r"><code># ---------------------------------------------------
+# 2) Ler o arquivo mtcars.json que está no formato NDJSON
+# ---------------------------------------------------
+
+# a) Ler o arquivo inteiro como texto, linha por linha
+json_lines &lt;- readLines(&quot;../dados/mtcars.json&quot;)
+
+# b) Converter cada linha (cada uma é um JSON válido) em uma lista
+json_list &lt;- lapply(json_lines, fromJSON)
+
+# c) Combinar todas as listas em um único data frame
+#    bind_rows() empilha todas as linhas em formato tabular
+if (!require(dplyr)) install.packages(&quot;dplyr&quot;)</code></pre>
+<pre><code>## Carregando pacotes exigidos: dplyr</code></pre>
+<pre><code>## 
+## Attaching package: &#39;dplyr&#39;</code></pre>
+<pre><code>## The following objects are masked from &#39;package:stats&#39;:
+## 
+##     filter, lag</code></pre>
+<pre><code>## The following objects are masked from &#39;package:base&#39;:
+## 
+##     intersect, setdiff, setequal, union</code></pre>
+<pre class="r"><code>library(dplyr)
+
+mtcars_df &lt;- bind_rows(json_list)
+
+# Conferir o resultado
+cat(&quot;\nArquivo mtcars.json carregado com sucesso (NDJSON):\n&quot;)</code></pre>
+<pre><code>## 
+## Arquivo mtcars.json carregado com sucesso (NDJSON):</code></pre>
+<pre class="r"><code>print(head(mtcars_df))</code></pre>
+<pre><code>## # A tibble: 6 × 12
+##   model          mpg   cyl  disp    hp  drat    wt  qsec    vs    am  gear  carb
+##   &lt;chr&gt;        &lt;dbl&gt; &lt;int&gt; &lt;dbl&gt; &lt;int&gt; &lt;dbl&gt; &lt;dbl&gt; &lt;dbl&gt; &lt;int&gt; &lt;int&gt; &lt;int&gt; &lt;int&gt;
+## 1 Mazda RX4     21       6   160   110  3.9   2.62  16.5     0     1     4     4
+## 2 Mazda RX4 W…  21       6   160   110  3.9   2.88  17.0     0     1     4     4
+## 3 Datsun 710    22.8     4   108    93  3.85  2.32  18.6     1     1     4     1
+## 4 Hornet 4 Dr…  21.4     6   258   110  3.08  3.22  19.4     1     0     3     1
+## 5 Hornet Spor…  18.7     8   360   175  3.15  3.44  17.0     0     0     3     2
+## 6 Valiant       18.1     6   225   105  2.76  3.46  20.2     1     0     3     1</code></pre>
+<pre class="r"><code># ---------------------------------------------------
+# Resultado final:
+# Agora temos dois data frames:
+#   - iris_df com os dados do arquivo parquet
+#   - mtcars_df com os dados do arquivo JSON
+# ---------------------------------------------------</code></pre>
 </div>
 
 
