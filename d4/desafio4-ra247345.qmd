@@ -1,0 +1,124 @@
+---
+title: "desafio4-247345"
+format: html
+editor: visual
+---
+
+```{r}
+# Professor o arquivo flights.csv.zip é muito grande para por no github!
+# O senhor precisa baixa-lo e tê-lo na pasta "dados" os labs que o usam funcionarem
+# Momento de execução do código
+print(Sys.time())
+# Carregar pacotes
+library(tidyverse)
+library(readr)
+library(leaflet)
+```
+
+```{r}
+# Caminhos dos arquivos (não carregando tudo na memória)
+arquivo_voos <- "../dados/flights.csv.zip"
+arquivo_aeroportos <- "../dados/airports.csv"
+```
+
+```{r}
+# ================================
+# Função principal para análise
+# ================================
+analisa_aeronave <- function(tail_number, arquivo_voos, arquivo_aeroportos) {
+  
+  # Ler arquivo de aeroportos (pequeno, cabe na memória)
+  airports <- read_csv(arquivo_aeroportos)
+  
+  # Preparar lista para acumular voos filtrados
+  voos_aeronave <- list()
+  
+  # Função callback para processar cada chunk
+  callback <- function(df, pos) {
+    filtro <- df %>% filter(TAIL_NUMBER == tail_number)
+    if (nrow(filtro) > 0) {
+      voos_aeronave[[length(voos_aeronave) + 1]] <<- filtro
+    }
+  }
+  
+  # Ler arquivo de voos em chunks de 500.000 linhas
+  read_csv_chunked(
+    file = arquivo_voos,
+    callback = SideEffectChunkCallback$new(callback),
+    chunk_size = 500000
+  )
+  
+  # Combinar todos os chunks filtrados
+  voos_aeronave_df <- bind_rows(voos_aeronave) %>%
+    arrange(YEAR, MONTH, DAY, SCHEDULED_DEPARTURE) %>%
+    mutate(
+      velocidade_mph = DISTANCE / (AIR_TIME / 60)  # Distância / tempo em horas
+    )
+  
+  # Juntar coordenadas de origem e destino
+  voos_aeronave_df <- voos_aeronave_df %>%
+    left_join(airports %>% select(IATA_CODE, LATITUDE, LONGITUDE),
+              by = c("ORIGIN_AIRPORT" = "IATA_CODE")) %>%
+    rename(orig_lat = LATITUDE, orig_lon = LONGITUDE) %>%
+    left_join(airports %>% select(IATA_CODE, LATITUDE, LONGITUDE),
+              by = c("DESTINATION_AIRPORT" = "IATA_CODE")) %>%
+    rename(dest_lat = LATITUDE, dest_lon = LONGITUDE)
+  
+  # Criar mapa Leaflet
+  peso_linhas <- scales::rescale(voos_aeronave_df$velocidade_mph, to = c(1, 5))
+  
+  mapa <- leaflet(voos_aeronave_df) %>%
+    addTiles() %>%
+    addPolylines(
+      lng = ~c(orig_lon, dest_lon),
+      lat = ~c(orig_lat, dest_lat),
+      color = "blue",
+      weight = peso_linhas,
+      opacity = 0.6,
+      label = ~paste0(ORIGIN_AIRPORT, " → ", DESTINATION_AIRPORT,
+                      "<br>Velocidade média: ", round(velocidade_mph, 1), " mph")
+    ) %>%
+    addCircleMarkers(
+      ~orig_lon, ~orig_lat,
+      radius = 3, color = "green",
+      label = ~ORIGIN_AIRPORT
+    ) %>%
+    addCircleMarkers(
+      ~dest_lon, ~dest_lat,
+      radius = 3, color = "red",
+      label = ~DESTINATION_AIRPORT
+    )
+  
+  # Retornar tabela + mapa
+  list(
+    tabela = voos_aeronave_df,
+    grafico = mapa
+  )
+}
+```
+
+```{r}
+# ================================
+# Escolher o TAIL_NUMBER fixo
+# ================================
+tail_number_escolhido <- "N431WN"  # Substitua por qualquer aeronave
+
+# Rodar análise
+resultado <- analisa_aeronave(tail_number_escolhido, arquivo_voos, arquivo_aeroportos)
+```
+
+```{r}
+# ================================
+# Exibir tabela (primeiros 50 registros)
+# ================================
+head(resultado$tabela, 50)
+
+```
+
+```{r}
+# ================================
+# Exibir mapa Leaflet
+# ================================
+resultado$grafico
+
+```
