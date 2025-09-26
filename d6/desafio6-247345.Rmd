@@ -22,7 +22,7 @@ knitr::opts_chunk$set(echo = TRUE)
 path <- getwd()
 
 # Criar o caminho completo até o arquivo disco.db
-fname <- file.path(path, "disco.db")
+fname <- file.path(path, "../dados/disco.db")
 
 fname
 ```
