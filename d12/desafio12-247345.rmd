@@ -7,6 +7,11 @@ output: html_document
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE, eval = FALSE)
 ```
+Momento de execução
+```{r, echo = TRUE, eval = TRUE}
+print(Sys.time())
+```
+
 ## Python instalado
 ## Biblioteca Polars instalada
 ## SQLite disponível no sistema
