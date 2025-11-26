@@ -1,0 +1,484 @@
+---
+title: "Importação de dados em Julia"
+format: revealjs
+editor: visual
+---
+## Importação de JSON em Julia
+
+###### Gabriel Braga, Samuel Dias, Raul Rocha
+
+Arquivos JSON são excelentes para flexibilidade e estruturas hierárquicas, mas são notoriamente mais lentos e pesados para processar do que formatos binários ou CSV. O ecossistema Julia aborda isso priorizando **tipagem estática** e **alocação zero** onde possível.
+
+## Ferramenta Principal: `JSON3.jl`
+
+Embora exista o pacote antigo `JSON.jl`, o padrão moderno para alta performance é o **`JSON3.jl`**.
+
+-   **Por que ele é rápido?** O `JSON3` tenta evitar ao máximo alocar memória nova. Ele cria "views" (visualizações) sobre o texto original em vez de copiar strings para novos objetos.
+
+-   **Integração com Structs:** Ele brilha quando você diz exatamente qual o formato dos dados (usando Structs), permitindo que o compilador do Julia gere código de máquina otimizado para aquele layout específico.
+
+    ```{julia}
+    #| eval: false
+
+    # Lendo uma string ou arquivo
+
+    # json_string = """{"nome": "Julia", "velocidade": "alta"}"""
+    # = JSON3.read(json_string)
+
+    # Acesso direto (como se fosse um objeto/dicionário)
+    #println(dados.nome)
+    ```
+
+Se você receber um arquivo de 5GB que é um único objeto JSON (começa com `{` e termina com `}`), o streaming é muito difícil. O `JSON3` utiliza `Mmap` (Memory Mapping) para lidar com isso. Ele mapeia o arquivo do disco para a memória virtual, permitindo que você navegue pelo JSON gigante sem carregar tudo na RAM física de uma vez.
+
+### Exemplo: Um Único Objeto JSON Gigante:
+
+```{julia}
+#using JSON3, Mmap
+
+# Mapeia o arquivo sem ler tudo imediatamente
+
+#dados = open("arquivo_unico_gigante.json") do io
+#    JSON3.read(Mmap.mmap(io))
+#end
+```
+
+## Introdução do dataset
+
+Este conjunto de dados é um subconjunto das informações de negócios, avaliações e usuários do Yelp. Ele foi originalmente criado para o **Yelp Dataset Challenge**, que é uma oportunidade para estudantes realizarem pesquisas ou análises com os dados do Yelp e compartilharem suas descobertas.
+
+No conjunto de dados mais recente, você encontrará informações sobre empresas em **8 áreas metropolitanas** nos Estados Unidos e no Canadá.
+##
+O dataset está disponível em <https://www.kaggle.com/datasets/yelp-dataset/yelp-dataset>
+
+O dataset contém 5 arquivos JSON, para a apresentação de importação de dados volumosos, escolhemos um de aproximadamente 110mb pois o código não conseguiu rodar nada acima de 1gb para arquivos JSON.
+
+Segue o código.
+
+## Leitura em Julia (JSON3)
+
+```{r}
+library(JuliaCall)
+julia_setup(install = FALSE)
+```
+
+```{julia}
+Pkg.add("JSON3")
+```
+##
+```{julia}
+#| label: load-data-json
+#| echo: true
+
+# ==============================================================================
+# LEITURA DE DADOS: DATA.JSON
+# ==============================================================================
+
+using JSON
+using Printf # Para formatar o tempo de execução
+
+# 1. Definição do Arquivo
+# O arquivo agora se chama "data.json" e está no diretório local
+arquivo = "data.json"
+
+# Inicializamos um vetor vazio para armazenar os registros
+dados = []
+
+# 2. Leitura com Cronômetro
+if isfile(arquivo)
+    println("🔄 Lendo arquivo '$arquivo'...")
+
+    # @elapsed mede o tempo de execução do bloco em segundos
+    tempo_gasto = @elapsed begin
+        
+        # Abre o arquivo em modo leitura ("r")
+        open(arquivo, "r") do f
+            # Itera sobre cada linha do arquivo individualmente
+            for linha in eachline(f)
+                if !isempty(strip(linha))
+                    # Converte a linha de texto em um objeto Julia (Dict)
+                    registro = JSON.parse(linha)
+                    push!(dados, registro)
+                end
+            end
+        end
+        
+    end
+  open("tempo_julia.txt", "w") do io
+    write(io, string(tempo_gasto))
+  end
+    # 3. Exibição dos Resultados
+    println("✅ Leitura concluída!")
+    
+    # Formata o tempo com 6 casas decimais
+    @printf("⏱️ Tempo total: %.6f segundos\n", tempo_gasto)
+    
+    println("📊 Registros processados: ", length(dados))
+
+else
+    println("❌ Erro: O arquivo '$arquivo' não foi encontrado no diretório.")
+    println("Diretório atual: ", pwd())
+ends
+```
+
+## Leitura em Python (Pandas)
+
+```{python}
+#| label: benchmark-pandas-fix
+#| echo: true
+
+import pandas as pd
+import time
+import sys
+import io
+
+# ==============================================================================
+# 1. CONFIGURAÇÃO DE SEGURANÇA DO CONSOLE (BLINDAGEM)
+# ==============================================================================
+# Isso impede que o erro 'surrogates not allowed' trave o script ao imprimir mensagens.
+try:
+    sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8', errors='replace')
+    sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding='utf-8', errors='replace')
+except Exception:
+    pass
+
+# ==============================================================================
+# 2. LEITURA COM PANDAS
+# ==============================================================================
+arquivo = "data.json"
+
+print(f"🐼 [Pandas] Iniciando leitura segura: {arquivo}")
+
+inicio = time.time()
+total_registros = 0
+sucesso = False
+
+try:
+    # chunksize: Lê em blocos para não estourar a RAM
+    # lines=True: Assume que é um JSON por linha (formato padrão de big data)
+    reader = pd.read_json(
+        arquivo, 
+        lines=True, 
+        chunksize=100000, 
+        encoding="utf-8",
+        encoding_errors="replace" # Ignora bytes corrompidos no arquivo
+    )
+
+    for i, chunk in enumerate(reader):
+        qtd_chunk = len(chunk)
+        total_registros += qtd_chunk
+        
+        # Feedback a cada bloco processado
+        print(f"Processando bloco {i}... ({qtd_chunk} linhas)")
+
+    # Se chegou aqui, o loop terminou sem erros
+    sucesso = True
+
+except ValueError as e:
+    # repr(e) é o segredo: ele imprime a representação técnica do erro
+    # escapando caracteres estranhos, evitando o UnicodeEncodeError no print.
+    print(f"\n❌ ERRO DE VALOR (Provável formato incorreto):")
+    print(f"Detalhe técnico: {repr(e)}") 
+
+except Exception as e:
+    print(f"\n❌ ERRO GERAL:")
+    print(f"Detalhe técnico: {repr(e)}")
+
+# ==============================================================================
+# 3. RESULTADOS
+# ==============================================================================
+fim = time.time()
+tempo_total = fim - inicio
+with open("tempo_python.txt", "w") as f:
+    f.write(str(tempo_total))
+if sucesso:
+    print("-" * 30)
+    print(f"✅ SUCESSO COMPLETO.")
+    print(f"⏱️ Tempo: {tempo_total:.4f} s")
+    print(f"📊 Registros: {total_registros}")
+else:
+    print("-" * 30)
+    print(f"⚠️ A leitura parou no meio devido ao erro acima.")
+    print(f"⏱️ Tempo até a falha: {tempo_total:.4f} s")
+```
+
+## Leitura em R (Arrow e jsonlite)
+
+```{r}
+#| label: benchmark-r-comparison
+#| echo: true
+
+# ==============================================================================
+# COMPARATIVO R: jsonlite vs arrow
+# ==============================================================================
+
+# Instalação (se necessário)
+# install.packages(c("jsonlite", "arrow"))
+
+library(jsonlite)
+library(arrow)
+
+arquivo <- "data.json"
+
+# Variáveis para armazenar os tempos
+tempo_jsonlite <- NA
+tempo_arrow <- NA
+
+cat(paste("📂 Arquivo alvo:", arquivo, "\n\n"))
+
+# ------------------------------------------------------------------------------
+# 1. Leitura com JSONLITE (Tradicional)
+# ------------------------------------------------------------------------------
+cat("🐌 [jsonlite] Iniciando leitura (isso pode demorar)...\n")
+start_j <- Sys.time()
+
+tryCatch({
+  # Usamos stream_in pois fromJSON costuma estourar a RAM com arquivos grandes
+  con <- file(arquivo, open = "r", encoding = "UTF-8")
+  df_jsonlite <- stream_in(con, verbose = FALSE, pagesize = 10000)
+  close(con)
+  
+  end_j <- Sys.time()
+  tempo_jsonlite <- as.numeric(difftime(end_j, start_j, units = "secs"))
+  
+  cat(sprintf("✅ jsonlite concluiu em: %.4f segundos\n", tempo_jsonlite))
+  cat(sprintf("📊 Linhas lidas: %d\n", nrow(df_jsonlite)))
+  
+  # --- LIMPEZA DE MEMÓRIA CRÍTICA ---
+  # Como o arquivo tem 5GB, não podemos manter dois dataframes na memória.
+  # Removemos o primeiro antes de tentar o segundo.
+  rm(df_jsonlite)
+  gc() # Força o Garbage Collector do R a liberar a RAM
+  cat("🧹 Memória limpa para o próximo teste.\n\n")
+
+}, error = function(e) {
+  cat("❌ jsonlite falhou (possivelmente falta de memória ou encoding).\n")
+  print(e)
+  if(exists("con") && isOpen(con)) close(con)
+})
+
+# ------------------------------------------------------------------------------
+# 2. Leitura com ARROW (Alta Performance)
+# ------------------------------------------------------------------------------
+cat("🚀 [arrow] Iniciando leitura...\n")
+start_a <- Sys.time()
+
+tryCatch({
+  # O arrow usa C++ e multithreading
+  df_arrow <- read_json_arrow(arquivo)
+  
+  end_a <- Sys.time()
+  tempo_arrow <- as.numeric(difftime(end_a, start_a, units = "secs"))
+  
+  cat(sprintf("✅ arrow concluiu em: %.4f segundos\n", tempo_arrow))
+  cat(sprintf("📊 Linhas lidas: %d\n", nrow(df_arrow)))
+
+}, error = function(e) {
+  cat("❌ arrow falhou.\n")
+  print(e)
+})
+
+# ------------------------------------------------------------------------------
+# 3. RESULTADO FINAL DO DUELO
+# ------------------------------------------------------------------------------
+cat("\n=========================================\n")
+cat("🏆 RESULTADO DO BENCHMARK (R)\n")
+cat("=========================================\n")
+
+if (!is.na(tempo_jsonlite) && !is.na(tempo_arrow)) {
+  cat(sprintf("🐢 jsonlite: %.4f s\n", tempo_jsonlite))
+  cat(sprintf("🐇 arrow:    %.4f s\n", tempo_arrow))
+  
+  diferenca <- tempo_jsonlite / tempo_arrow
+  cat(sprintf("\n⚡ O Arrow foi %.1fx mais rápido que o jsonlite.\n", diferenca))
+} else {
+  cat("⚠️ Não foi possível comparar (um dos métodos falhou).\n")
+}
+```
+
+## Comparação dos resultados
+
+```{r}
+#| label: benchmark-final-r-ascii
+#| echo: true
+
+# ==============================================================================
+# 📝 INPUT: INSIRA SEUS TEMPOS AQUI
+# ==============================================================================
+# Crie um Data Frame com os resultados.
+# Substitua os valores numéricos pelos que você anotou.
+
+ler_tempo <- function(arquivo) {
+  if (file.exists(arquivo)) {
+    val <- as.numeric(readLines(arquivo, warn = FALSE))
+    return(val)
+  } else {
+    return(NA) # Retorna NA se o arquivo não existir (célula não rodou)
+  }
+}
+
+tempo_python <- ler_tempo("tempo_python.txt")
+tempo_julia <- ler_tempo("tempo_julia.txt")
+
+dados <- data.frame(
+  Metodo = c("Julia (JSON3 + Mmap)", "R (Arrow)", "Python (Pandas)", "R (jsonlite)"),
+  Tempo = c(tempo_julia, tempo_arrow, tempo_python, tempo_jsonlite), # <--- SEUS VALORES AQUI
+  stringsAsFactors = FALSE
+)
+
+
+# ==============================================================================
+# GERADOR DE TABELA (R Base)
+# ==============================================================================
+
+# 1. Ordenar do mais rápido para o mais lento
+dados <- dados[order(dados$Tempo), ]
+
+melhor_tempo <- dados$Tempo[1]
+pior_tempo <- tail(dados$Tempo, 1)
+tamanho_grafico <- 30 # Largura máxima da barra
+
+# Cabeçalho
+cat("\n")
+cat(paste(rep("=", 75), collapse = ""), "\n")
+cat(" RESULTADO FINAL DO BENCHMARK (Menor tempo = Melhor)\n")
+cat(paste(rep("=", 75), collapse = ""), "\n\n")
+
+# Colunas
+cat(sprintf("%-25s | %-10s | %-15s | %s\n", 
+            "LINGUAGEM / METODO", "TEMPO (s)", "DIFERENCA", "GRAFICO"))
+cat(paste(rep("-", 75), collapse = ""), "\n")
+
+# Loop para imprimir linhas
+for(i in 1:nrow(dados)) {
+  nome <- dados$Metodo[i]
+  tempo <- dados$Tempo[i]
+  
+  # Cálculo do fator
+  fator <- tempo / melhor_tempo
+  
+  # Cálculo da barra
+  # Evita divisão por zero
+  if (pior_tempo > 0) {
+    qtd_barras <- round((tempo / pior_tempo) * tamanho_grafico)
+  } else {
+    qtd_barras <- 0
+  }
+  
+  # Garante pelo menos 1 caractere para visualização e cria a string da barra
+  qtd_barras <- max(1, qtd_barras)
+  barra <- paste(rep("#", qtd_barras), collapse = "")
+  
+  # Texto do status
+  if (fator == 1.0) {
+    status <- "CAMPEAO"
+  } else {
+    status <- sprintf("%.1fx lento", fator)
+  }
+  
+  # Impressão formatada
+  cat(sprintf("%-25s | %10.4f | %-15s | %s\n", 
+              nome, tempo, status, barra))
+}
+
+cat(paste(rep("-", 75), collapse = ""), "\n")
+```
+## Dataset - NYC TLC Trip Record Data
+
+ Usaremos um dos dataset públicos do "NYC TLC Trip Record Data" (encontrado em: <a>https://www.nyc.gov/site/tlc/about/tlc-trip-record-data.page</a>) no formato Parquet. 
+ 
+ O site disponibiliza registros de viagens realizadas pelo serviço de "NYC Taxi and Limousine Commission (TLC)". Usaremos o "High Volume For-Hire Vehicle Trip Records" (fhvhv_tripdata_2021-01.parquet) que contém dados sobre: tempo de viagem, número de passageiros, taxas da corrida, forma de pagamento, entre outros.
+ 
+## O que é Parquet?
+
+Parquet é um formato de armazenamento colunar, projetado para análise de dados em larga escala. Ele organiza os dados por colunas, o que reduz tamanho, melhora compressão e acelera operações analíticas.
+
+Facilidades
+
+- Alta compressão → arquivos menores e mais rápidos de transferir.
+- Leitura seletiva de colunas → reduz tempo e memória.
+- Integração nativa com motores analíticos (Arrow, DuckDB, Spark, Polars).
+
+
+Dificuldades
+
+- Leitura completa pode consumir muita memória,  devendo ser combinada com ferramentas como DuckDB/Arrow para evitar materialização total.
+- Não é ideal para atualizações linha a linha (não é um formato para “edição”).
+
+
+```{r eval = FALSE}
+if (!requireNamespace("arrow", quietly = TRUE)) install.packages("arrow")
+if (!requireNamespace("duckdb", quietly = TRUE)) install.packages("duckdb")
+if (!requireNamespace("DBI", quietly = TRUE)) install.packages("DBI")
+library(arrow); library(duckdb); library(DBI)
+```
+
+
+```{r eval=FALSE}
+library(arrow)
+ds <- open_dataset("data/fhvhv_tripdata_2021-01.parquet", format = "parquet")
+ds$schema
+```
+
+## Leitura direta - R
+
+```{r eval=TRUE}
+library(arrow)
+sys = system.time({
+df_r <- read_parquet('data/fhvhv_tripdata_2021-01.parquet')
+})
+print(sys)
+print(dim(df_r))
+head(df_r)
+```
+
+## Seleção de colunas (carregamento parcial) - R
+
+```{r eval=TRUE}
+system.time({
+df_r_sel <- read_parquet(
+  "data/fhvhv_tripdata_2021-01.parquet",
+  col_select = c(
+    "pickup_datetime",
+    "dropoff_datetime",
+    "trip_miles",
+    "trip_time",
+    "tips"
+  )                                 
+)
+head(df_r_sel)
+})
+print(dim(df_r_sel))
+head(df_r_sel)
+```
+
+## Consultas usando DuckDB - R
+
+```{r eval=TRUE}
+system.time({
+con <- DBI::dbConnect(duckdb::duckdb())
+DBI::dbGetQuery(con, "
+  SELECT COUNT(*) AS n
+  FROM read_parquet('data/fhvhv_tripdata_2021-01.parquet')
+")
+DBI::dbGetQuery(con, "
+  SELECT
+    PULocationID,
+    AVG(trip_miles) AS avg_miles,
+    AVG(trip_time) AS avg_time
+  FROM read_parquet('data/fhvhv_tripdata_2021-01.parquet')
+  GROUP BY PULocationID
+  ORDER BY PULocationID
+  LIMIT 10
+")
+DBI::dbDisconnect(con, shutdown=TRUE)
+})
+```
+
+## Boas práticas para grandes volumes
+
+- Use formatos colunares (Parquet, Arrow) e selecione apenas colunas necessárias.
+- Prefira uma camada de consulta (DuckDB) para análises exploratórias sem "materializar" tudo.
+- Considere partitioning e ler em blocos.
+
+- O fluxo ideal para grandes Parquet: DuckDB para exploração + "materializar" apenas o que precisar.
